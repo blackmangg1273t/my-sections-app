@@ -1,7 +1,14 @@
+import { useState } from 'react'
 import { sections } from './data/sections'
+import Chat from './components/Chat'
 
 function App() {
   const hasSections = sections.length > 0
+  const [view, setView] = useState<'home' | 'chat'>('home')
+
+  if (view === 'chat') {
+    return <Chat onBack={() => setView('home')} />
+  }
 
   return (
     <main className="app-shell">
@@ -47,6 +54,16 @@ function App() {
 
                 <h3>{section.title}</h3>
                 <p>{section.description}</p>
+
+                {section.id === 'secure-messaging-platform' && (
+                  <button
+                    type="button"
+                    className="chat-launch-btn"
+                    onClick={() => setView('chat')}
+                  >
+                    افتح الشات المباشر ↗
+                  </button>
+                )}
 
                 <ul className="highlight-list">
                   {section.highlights.map((highlight) => (
