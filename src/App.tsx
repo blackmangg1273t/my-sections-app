@@ -17,8 +17,8 @@ function App() {
           <p className="eyebrow">مساحة مشتركة للأفكار</p>
           <h1 id="intro-title">كل برومبت يتحول إلى قسم مستقل.</h1>
           <p className="intro-copy">
-            الموقع جاهز كبداية نظيفة لك وللأصدقاء. أرسل فكرة القسم، وسنضيفها
-            هنا بشكل منظم قابل للتعديل والنشر.
+            الموقع جاهز لك وللأصدقاء. كل فكرة جديدة تظهر هنا كقسم منظم، مع
+            ملخص سريع والنص الكامل للبرومبت عند الحاجة.
           </p>
         </div>
       </section>
@@ -36,10 +36,28 @@ function App() {
           <div className="section-grid">
             {sections.map((section) => (
               <article className="section-card" key={section.id}>
-                <time dateTime={section.createdAt}>{section.createdAt}</time>
+                <div className="section-meta">
+                  <time dateTime={section.createdAt}>{section.createdAt}</time>
+                  <div className="tag-list" aria-label="وسوم القسم">
+                    {section.tags.map((tag) => (
+                      <span key={tag}>{tag}</span>
+                    ))}
+                  </div>
+                </div>
+
                 <h3>{section.title}</h3>
                 <p>{section.description}</p>
-                <div className="section-content">{section.content}</div>
+
+                <ul className="highlight-list">
+                  {section.highlights.map((highlight) => (
+                    <li key={highlight}>{highlight}</li>
+                  ))}
+                </ul>
+
+                <details className="prompt-panel">
+                  <summary>عرض البرومبت الكامل</summary>
+                  <pre>{section.content}</pre>
+                </details>
               </article>
             ))}
           </div>

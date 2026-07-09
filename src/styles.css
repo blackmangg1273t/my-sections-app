@@ -122,7 +122,7 @@ h2 {
 .section-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .section-card,
@@ -134,7 +134,15 @@ h2 {
 }
 
 .section-card {
-  padding: 22px;
+  padding: clamp(22px, 4vw, 34px);
+}
+
+.section-meta {
+  align-items: flex-start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-bottom: 18px;
 }
 
 .section-card time {
@@ -142,25 +150,83 @@ h2 {
   display: block;
   font-size: 0.82rem;
   font-weight: 700;
-  margin-bottom: 14px;
+  white-space: nowrap;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.tag-list span {
+  background: #e8f0ec;
+  border: 1px solid #c8d8d0;
+  border-radius: 999px;
+  color: #14342b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 5px 10px;
 }
 
 .section-card h3 {
   color: #14342b;
-  font-size: 1.35rem;
+  font-size: clamp(1.65rem, 3vw, 2.35rem);
   margin-bottom: 10px;
 }
 
 .section-card p,
-.section-content,
 .empty-state p {
   color: #4d4a45;
 }
 
-.section-content {
+.highlight-list {
   border-top: 1px solid #eee4d8;
+  color: #2f3d36;
+  display: grid;
+  gap: 10px;
+  line-height: 1.6;
+  list-style: none;
   margin-top: 18px;
+  padding: 18px 0 0;
+}
+
+.highlight-list li {
+  background: #f7f2ea;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.prompt-panel {
+  border-top: 1px solid #eee4d8;
+  margin-top: 22px;
   padding-top: 18px;
+}
+
+.prompt-panel summary {
+  color: #14342b;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.prompt-panel pre {
+  background: #161816;
+  border-radius: 8px;
+  color: #f4f7f1;
+  direction: ltr;
+  font-family:
+    "Cascadia Code",
+    Consolas,
+    monospace;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  margin: 16px 0 0;
+  max-height: 520px;
+  overflow: auto;
+  padding: 18px;
+  text-align: left;
+  white-space: pre-wrap;
 }
 
 .empty-state {
@@ -181,9 +247,14 @@ h2 {
   }
 
   .site-header,
-  .section-heading {
+  .section-heading,
+  .section-meta {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .tag-list {
+    justify-content: flex-start;
   }
 
   .intro {
