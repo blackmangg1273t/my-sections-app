@@ -592,8 +592,12 @@ function AccessGate({
     setBusy(false)
 
     if (claimErr) {
-      setError('اليوزرنيم ده اتاخد لسه، جرب تاني.')
-      setStep('name')
+      if (claimErr.message?.includes('username_taken')) {
+        setError('اليوزرنيم ده اتاخد لسه، جرب تاني.')
+        setStep('name')
+      } else {
+        setError('حصل خطأ غير متوقع، جرب تاني كمان شوية.')
+      }
       return
     }
     onSuccess(trimmed, avatar)
@@ -766,7 +770,11 @@ function SettingsModal({
     setSaving(false)
 
     if (updateErr) {
-      setError('اليوزرنيم الجديد ده متاخد بالفعل.')
+      if (updateErr.message?.includes('username_taken')) {
+        setError('اليوزرنيم الجديد ده متاخد بالفعل.')
+      } else {
+        setError('حصل خطأ غير متوقع، جرب تاني كمان شوية.')
+      }
       return
     }
 
