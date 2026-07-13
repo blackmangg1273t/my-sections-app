@@ -393,12 +393,188 @@ h2 {
   border-color: var(--chat-name-color);
 }
 
-.chat-live-dot {
+.chat-online-count {
+  color: var(--chat-header-text);
+  font-size: 0.7rem;
+  opacity: 0.75;
+}
+
+.chat-online-dot {
   background: #4ade80;
   border-radius: 999px;
   display: inline-block;
-  height: 8px;
-  width: 8px;
+  height: 7px;
+  width: 7px;
+}
+
+.chat-search-row {
+  background: var(--chat-bg);
+  border-bottom: 1px solid var(--chat-border);
+  padding: 10px 18px;
+}
+
+.chat-search-row input {
+  background: var(--chat-page-bg);
+  border: 1px solid var(--chat-border);
+  border-radius: 999px;
+  color: var(--chat-bubble-text);
+  padding: 10px 16px;
+  width: 100%;
+}
+
+.chat-pinned-banner {
+  background: var(--chat-bubble-bg);
+  border-bottom: 1px solid var(--chat-border);
+  color: var(--chat-bubble-text);
+  font-size: 0.82rem;
+  overflow: hidden;
+  padding: 8px 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-pinned-name {
+  color: var(--chat-name-color);
+  font-weight: 800;
+}
+
+.chat-bubble-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 78%;
+}
+
+.chat-bubble-row-mine .chat-bubble-col {
+  align-items: flex-end;
+}
+
+.chat-bubble-actions {
+  display: flex;
+  gap: 8px;
+  opacity: 0.7;
+}
+
+.chat-bubble-actions button {
+  background: none;
+  border: none;
+  color: var(--chat-bubble-text);
+  cursor: pointer;
+  font-size: 0.68rem;
+  opacity: 0.75;
+  padding: 0;
+}
+
+.chat-bubble-actions button:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.chat-emoji-picker {
+  background: var(--chat-bubble-bg);
+  border: 1px solid var(--chat-border);
+  border-radius: 999px;
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+  width: fit-content;
+}
+
+.chat-emoji-picker button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.chat-reactions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chat-reaction-chip {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--chat-border);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+}
+
+.chat-reaction-chip-mine {
+  border-color: var(--chat-name-color);
+}
+
+.chat-reply-quote {
+  background: rgba(0, 0, 0, 0.12);
+  border-inline-start: 3px solid var(--chat-name-color);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  margin-bottom: 6px;
+  padding: 4px 8px;
+}
+
+.chat-reply-quote strong {
+  color: var(--chat-name-color);
+  display: block;
+}
+
+.chat-deleted-text {
+  font-style: italic;
+  margin: 0;
+  opacity: 0.6;
+}
+
+.chat-attachment-img {
+  border-radius: 10px;
+  margin-bottom: 6px;
+  max-height: 260px;
+  max-width: 100%;
+}
+
+.chat-typing-indicator {
+  background: var(--chat-bg);
+  color: var(--chat-bubble-text);
+  font-size: 0.78rem;
+  margin: 0;
+  opacity: 0.7;
+  padding: 4px 18px;
+}
+
+.chat-composer-context {
+  align-items: center;
+  background: var(--chat-bubble-bg);
+  border-top: 1px solid var(--chat-border);
+  color: var(--chat-bubble-text);
+  display: flex;
+  font-size: 0.8rem;
+  justify-content: space-between;
+  padding: 8px 18px;
+}
+
+.chat-composer-context em {
+  display: block;
+  font-style: normal;
+  opacity: 0.7;
+}
+
+.chat-composer-context button {
+  background: none;
+  border: none;
+  color: var(--chat-bubble-text);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.chat-attach-btn {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  font-size: 1.2rem;
+  justify-content: center;
+  padding: 0 4px;
 }
 
 .chat-back {

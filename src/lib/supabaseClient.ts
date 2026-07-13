@@ -20,4 +20,22 @@ export type ChatMessage = {
   username: string
   content: string
   created_at: string
+  reply_to_id: string | null
+  edited_at: string | null
+  deleted: boolean
+  pinned: boolean
+  attachment_url: string | null
+  attachment_type: 'image' | 'gif' | null
+}
+
+export type MessageReaction = {
+  message_id: string
+  username: string
+  emoji: string
+  created_at: string
+}
+
+export type ChatRead = {
+  username: string
+  last_read_at: string
 }

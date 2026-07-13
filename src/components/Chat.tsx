@@ -1,9 +1,17 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { supabase, type ChatMessage, type Profile } from '../lib/supabaseClient'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import {
+  supabase,
+  type ChatMessage,
+  type ChatRead,
+  type MessageReaction,
+  type Profile,
+} from '../lib/supabaseClient'
 import { useLocalIdentity } from '../lib/useLocalIdentity'
 import { useChatTheme, THEMES, type ThemeId } from '../lib/useChatTheme'
+import { usePresence } from '../lib/usePresence'
 
 type ProfilesByUsername = Record<string, Profile>
+const QUICK_EMOJIS = ['❤️', '😂', '👍', '😮', '😢', '🔥']
 
 function initials(name: string) {
   return name.trim().slice(0, 2).toUpperCase()
@@ -13,11 +21,22 @@ export default function Chat({ onBack }: { onBack: () => void }) {
   const { username, avatarUrl, setUsername, setAvatarUrl, clearIdentity } =
     useLocalIdentity()
   const { theme, setTheme } = useChatTheme()
+  const { onlineUsers, typingUsers, setTyping } = usePresence(username)
+
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [profiles, setProfiles] = useState<ProfilesByUsername>({})
+  const [reactions, setReactions] = useState<MessageReaction[]>([])
+  const [reads, setReads] = useState<ChatRead[]>([])
   const [draft, setDraft] = useState('')
+  const [attachment, setAttachment] = useState<{ url: string; type: 'image' | 'gif' } | null>(null)
+  const [uploadingAttachment, setUploadingAttachment] = useState(false)
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showThemes, setShowThemes] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -30,25 +49,24 @@ export default function Chat({ onBack }: { onBack: () => void }) {
 
     async function load() {
       setLoading(true)
-      const [{ data: msgs, error: msgErr }, { data: profs, error: profErr }] =
-        await Promise.all([
-          supabase
-            .from('messages')
-            .select('*')
-            .order('created_at', { ascending: true })
-            .limit(200),
-          supabase.from('profiles').select('id, username, avatar_url, created_at, updated_at'),
-        ])
+      const [msgRes, profRes, reactRes, readsRes] = await Promise.all([
+        supabase.from('messages').select('*').order('created_at', { ascending: true }).limit(300),
+        supabase.from('profiles').select('id, username, avatar_url, created_at, updated_at'),
+        supabase.from('message_reactions').select('*'),
+        supabase.from('chat_reads').select('*'),
+      ])
 
       if (!active) return
 
-      if (msgErr || profErr) {
+      if (msgRes.error || profRes.error) {
         setError('تعذر تحميل الرسائل. حاول تاني.')
       } else {
-        setMessages(msgs ?? [])
+        setMessages(msgRes.data ?? [])
         const map: ProfilesByUsername = {}
-        for (const p of profs ?? []) map[p.username] = p
+        for (const p of profRes.data ?? []) map[p.username] = p
         setProfiles(map)
+        setReactions(reactRes.data ?? [])
+        setReads(readsRes.data ?? [])
       }
       setLoading(false)
     }
@@ -56,14 +74,26 @@ export default function Chat({ onBack }: { onBack: () => void }) {
     load()
 
     const channel = supabase
-      .channel('public:messages')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new as ChatMessage])
-        },
-      )
+      .channel('public:chat-all')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        setMessages((prev) => [...prev, payload.new as ChatMessage])
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+        const updated = payload.new as ChatMessage
+        setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions' }, () => {
+        supabase
+          .from('message_reactions')
+          .select('*')
+          .then(({ data }) => setReactions(data ?? []))
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_reads' }, () => {
+        supabase
+          .from('chat_reads')
+          .select('*')
+          .then(({ data }) => setReads(data ?? []))
+      })
       .subscribe()
 
     return () => {
@@ -72,20 +102,140 @@ export default function Chat({ onBack }: { onBack: () => void }) {
     }
   }, [isReady])
 
+  // Mark as read whenever new messages arrive while the chat is open
+  useEffect(() => {
+    if (!username || messages.length === 0) return
+    supabase
+      .from('chat_reads')
+      .upsert({ username, last_read_at: new Date().toISOString() }, { onConflict: 'username' })
+      .then(() => {})
+  }, [username, messages.length])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length])
+
+  const messageById = useMemo(() => {
+    const map = new Map<string, ChatMessage>()
+    for (const m of messages) map.set(m.id, m)
+    return map
   }, [messages])
+
+  const reactionsByMessage = useMemo(() => {
+    const map = new Map<string, MessageReaction[]>()
+    for (const r of reactions) {
+      const list = map.get(r.message_id) ?? []
+      list.push(r)
+      map.set(r.message_id, list)
+    }
+    return map
+  }, [reactions])
+
+  const pinnedMessage = messages.filter((m) => m.pinned && !m.deleted).at(-1)
+
+  const otherUsersLastRead = useMemo(() => {
+    let max = ''
+    for (const r of reads) {
+      if (r.username !== username && r.last_read_at > max) max = r.last_read_at
+    }
+    return max
+  }, [reads, username])
+
+  const visibleMessages = useMemo(() => {
+    if (!showSearch || !searchQuery.trim()) return messages
+    const q = searchQuery.trim().toLowerCase()
+    return messages.filter((m) => !m.deleted && m.content.toLowerCase().includes(q))
+  }, [messages, showSearch, searchQuery])
+
+  async function handleAttachmentChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 8 * 1024 * 1024) {
+      setError('حجم الملف كبير أوي (الحد الأقصى 8MB).')
+      return
+    }
+    setUploadingAttachment(true)
+    setError(null)
+    const ext = file.name.split('.').pop() || 'png'
+    const path = `${crypto.randomUUID()}.${ext}`
+    const { error: uploadErr } = await supabase.storage.from('chat-media').upload(path, file)
+    if (uploadErr) {
+      setError('تعذر رفع المرفق.')
+      setUploadingAttachment(false)
+      return
+    }
+    const { data } = supabase.storage.from('chat-media').getPublicUrl(path)
+    setAttachment({ url: data.publicUrl, type: file.type === 'image/gif' ? 'gif' : 'image' })
+    setUploadingAttachment(false)
+  }
 
   async function handleSend(e: FormEvent) {
     e.preventDefault()
-    if (!draft.trim() || !username) return
+    if (!username) return
+    if (!draft.trim() && !attachment) return
+
+    if (editingId) {
+      const { error: editErr } = await supabase
+        .from('messages')
+        .update({ content: draft.trim(), edited_at: new Date().toISOString() })
+        .eq('id', editingId)
+        .eq('username', username)
+      if (editErr) setError('تعذر تعديل الرسالة.')
+      setEditingId(null)
+      setDraft('')
+      return
+    }
+
     const content = draft.trim()
     setDraft('')
-    const { error: sendErr } = await supabase
-      .from('messages')
-      .insert({ username, content })
+    const attachmentToSend = attachment
+    setAttachment(null)
+    setTyping(false)
+
+    const { error: sendErr } = await supabase.from('messages').insert({
+      username,
+      content,
+      reply_to_id: replyTo?.id ?? null,
+      attachment_url: attachmentToSend?.url ?? null,
+      attachment_type: attachmentToSend?.type ?? null,
+    })
     if (sendErr) setError('تعذر إرسال الرسالة.')
+    setReplyTo(null)
   }
+
+  function startEdit(m: ChatMessage) {
+    setEditingId(m.id)
+    setDraft(m.content)
+    setReplyTo(null)
+  }
+
+  async function toggleReaction(messageId: string, emoji: string) {
+    if (!username) return
+    const existing = reactions.find((r) => r.message_id === messageId && r.username === username)
+    if (existing && existing.emoji === emoji) {
+      await supabase.from('message_reactions').delete().eq('message_id', messageId).eq('username', username)
+    } else {
+      await supabase
+        .from('message_reactions')
+        .upsert({ message_id: messageId, username, emoji }, { onConflict: 'message_id,username' })
+    }
+    setReactionPickerFor(null)
+  }
+
+  async function deleteMessage(m: ChatMessage) {
+    if (!username) return
+    await supabase
+      .from('messages')
+      .update({ deleted: true, content: '', attachment_url: null, attachment_type: null })
+      .eq('id', m.id)
+      .eq('username', username)
+  }
+
+  async function togglePin(m: ChatMessage) {
+    await supabase.from('messages').update({ pinned: !m.pinned }).eq('id', m.id)
+  }
+
+  const typingOthers = [...typingUsers].filter((u) => u !== username)
 
   if (!isReady) {
     return (
@@ -110,29 +260,23 @@ export default function Chat({ onBack }: { onBack: () => void }) {
         <div className="chat-header-title">
           <h2>NULLPOINT</h2>
           <span className="chat-live-dot" aria-hidden="true" />
+          <span className="chat-online-count">{onlineUsers.size} متصل الآن</span>
         </div>
         <div className="chat-header-actions">
-          <button
-            type="button"
-            className="chat-icon-btn"
-            title="الثيمات"
-            onClick={() => setShowThemes((v) => !v)}
-          >
+          <button type="button" className="chat-icon-btn" title="بحث" onClick={() => setShowSearch((v) => !v)}>
+            🔍
+          </button>
+          <button type="button" className="chat-icon-btn" title="الثيمات" onClick={() => setShowThemes((v) => !v)}>
             🎨
           </button>
-          <button
-            type="button"
-            className="chat-me"
-            onClick={() => setShowSettings(true)}
-          >
+          <button type="button" className="chat-me" onClick={() => setShowSettings(true)}>
             {avatarUrl ? (
               <img src={avatarUrl} alt={username ?? ''} className="chat-avatar-sm" />
             ) : (
-              <span className="chat-avatar-sm chat-avatar-fallback">
-                {initials(username ?? '?')}
-              </span>
+              <span className="chat-avatar-sm chat-avatar-fallback">{initials(username ?? '?')}</span>
             )}
             <span>{username}</span>
+            {onlineUsers.has(username ?? '') && <span className="chat-online-dot" />}
           </button>
         </div>
       </header>
@@ -154,42 +298,126 @@ export default function Chat({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
+      {showSearch && (
+        <div className="chat-search-row">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="ابحث في الرسائل…"
+            autoFocus
+          />
+        </div>
+      )}
+
+      {pinnedMessage && !showSearch && (
+        <div className="chat-pinned-banner">
+          📌 <span className="chat-pinned-name">{pinnedMessage.username}:</span>{' '}
+          <span className="chat-pinned-text">{pinnedMessage.content || 'مرفق'}</span>
+        </div>
+      )}
+
       {error && <p className="chat-error">{error}</p>}
 
       <div className="chat-messages">
         {loading ? (
           <p className="chat-loading">بيتحمّل الشات…</p>
-        ) : messages.length === 0 ? (
-          <p className="chat-loading">لسه مفيش رسائل، ابدأ أول واحدة!</p>
+        ) : visibleMessages.length === 0 ? (
+          <p className="chat-loading">
+            {showSearch && searchQuery ? 'مفيش نتائج' : 'لسه مفيش رسائل، ابدأ أول واحدة!'}
+          </p>
         ) : (
-          messages.map((m) => {
+          visibleMessages.map((m) => {
             const isMine = m.username === username
             const profile = profiles[m.username]
+            const repliedMsg = m.reply_to_id ? messageById.get(m.reply_to_id) : null
+            const msgReactions = reactionsByMessage.get(m.id) ?? []
+            const reactionCounts = new Map<string, number>()
+            for (const r of msgReactions) reactionCounts.set(r.emoji, (reactionCounts.get(r.emoji) ?? 0) + 1)
+            const myReaction = msgReactions.find((r) => r.username === username)?.emoji
+            const isSeen = isMine && !!otherUsersLastRead && otherUsersLastRead >= m.created_at
+
             return (
-              <div
-                key={m.id}
-                className={`chat-bubble-row${isMine ? ' chat-bubble-row-mine' : ''}`}
-              >
+              <div key={m.id} className={`chat-bubble-row${isMine ? ' chat-bubble-row-mine' : ''}`}>
                 {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt={m.username}
-                    className="chat-avatar-sm"
-                  />
+                  <img src={profile.avatar_url} alt={m.username} className="chat-avatar-sm" />
                 ) : (
-                  <span className="chat-avatar-sm chat-avatar-fallback">
-                    {initials(m.username)}
-                  </span>
+                  <span className="chat-avatar-sm chat-avatar-fallback">{initials(m.username)}</span>
                 )}
-                <div className={`chat-bubble${isMine ? ' chat-bubble-mine' : ''}`}>
-                  <span className="chat-bubble-name">{m.username}</span>
-                  <p>{m.content}</p>
-                  <time>
-                    {new Date(m.created_at).toLocaleTimeString('ar-EG', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </time>
+
+                <div className="chat-bubble-col">
+                  <div className={`chat-bubble${isMine ? ' chat-bubble-mine' : ''}`}>
+                    <span className="chat-bubble-name">{m.username}</span>
+
+                    {repliedMsg && (
+                      <div className="chat-reply-quote">
+                        <strong>{repliedMsg.username}</strong>
+                        <span>{repliedMsg.content || 'مرفق'}</span>
+                      </div>
+                    )}
+
+                    {m.deleted ? (
+                      <p className="chat-deleted-text">🗑 تم حذف الرسالة</p>
+                    ) : (
+                      <>
+                        {m.attachment_url && (
+                          <img src={m.attachment_url} alt="مرفق" className="chat-attachment-img" />
+                        )}
+                        {m.content && <p>{m.content}</p>}
+                      </>
+                    )}
+
+                    <time>
+                      {new Date(m.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                      {m.edited_at && ' · معدّلة'}
+                      {isMine && (isSeen ? ' · ✓✓ اتقرأت' : ' · ✓ اتبعتت')}
+                    </time>
+
+                    {msgReactions.length > 0 && (
+                      <div className="chat-reactions-row">
+                        {[...reactionCounts.entries()].map(([emoji, count]) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className={`chat-reaction-chip${myReaction === emoji ? ' chat-reaction-chip-mine' : ''}`}
+                            onClick={() => toggleReaction(m.id, emoji)}
+                          >
+                            {emoji} {count}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {!m.deleted && (
+                    <div className="chat-bubble-actions">
+                      <button type="button" onClick={() => setReactionPickerFor(reactionPickerFor === m.id ? null : m.id)}>
+                        😊
+                      </button>
+                      <button type="button" onClick={() => { setReplyTo(m); setEditingId(null) }}>
+                        ↩ رد
+                      </button>
+                      {isMine && (
+                        <>
+                          <button type="button" onClick={() => startEdit(m)}>✏️ تعديل</button>
+                          <button type="button" onClick={() => deleteMessage(m)}>🗑 حذف</button>
+                        </>
+                      )}
+                      <button type="button" onClick={() => togglePin(m)}>
+                        {m.pinned ? '📌 إلغاء التثبيت' : '📌 تثبيت'}
+                      </button>
+                    </div>
+                  )}
+
+                  {reactionPickerFor === m.id && (
+                    <div className="chat-emoji-picker">
+                      {QUICK_EMOJIS.map((emoji) => (
+                        <button key={emoji} type="button" onClick={() => toggleReaction(m.id, emoji)}>
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -198,16 +426,55 @@ export default function Chat({ onBack }: { onBack: () => void }) {
         <div ref={bottomRef} />
       </div>
 
+      {typingOthers.length > 0 && (
+        <p className="chat-typing-indicator">
+          {typingOthers.join('، ')} {typingOthers.length === 1 ? 'بيكتب' : 'بيكتبوا'}…
+        </p>
+      )}
+
+      {(replyTo || editingId) && (
+        <div className="chat-composer-context">
+          <span>
+            {editingId ? '✏️ بتعدّل رسالة' : `↩ بترد على ${replyTo?.username}`}
+            {replyTo && <em>{replyTo.content}</em>}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setReplyTo(null)
+              setEditingId(null)
+              setDraft('')
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {attachment && (
+        <div className="chat-composer-context">
+          <span>🖼 صورة مرفقة</span>
+          <button type="button" onClick={() => setAttachment(null)}>✕</button>
+        </div>
+      )}
+
       <form className="chat-input-row" onSubmit={handleSend}>
+        <label className="chat-attach-btn" title="أرفق صورة أو GIF">
+          {uploadingAttachment ? '…' : '📎'}
+          <input type="file" accept="image/*,image/gif" onChange={handleAttachmentChange} hidden />
+        </label>
         <input
           type="text"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            setTyping(e.target.value.length > 0)
+          }}
           placeholder="اكتب رسالة…"
           maxLength={2000}
         />
-        <button type="submit" disabled={!draft.trim()}>
-          إرسال
+        <button type="submit" disabled={!draft.trim() && !attachment}>
+          {editingId ? 'حفظ' : 'إرسال'}
         </button>
       </form>
 
@@ -231,9 +498,6 @@ export default function Chat({ onBack }: { onBack: () => void }) {
   )
 }
 
-/** First-run gate: choose a username, and if it's taken + password-protected,
- * ask for the password/secret word. If it's brand new, let the user claim it
- * and optionally protect it. */
 function AccessGate({
   onBack,
   onSuccess,
@@ -263,21 +527,14 @@ function AccessGate({
     }
     setError(null)
     setBusy(true)
-    const { data, error: rpcErr } = await supabase.rpc('username_has_password', {
-      p_username: trimmed,
-    })
+    const { data, error: rpcErr } = await supabase.rpc('username_has_password', { p_username: trimmed })
     setBusy(false)
 
     if (rpcErr) {
       setError('حصل خطأ، جرب تاني.')
       return
     }
-
-    if (data === null) {
-      setStep('new')
-    } else {
-      setStep('password')
-    }
+    setStep(data === null ? 'new' : 'password')
   }
 
   async function handlePasswordSubmit(e: FormEvent) {
@@ -285,10 +542,10 @@ function AccessGate({
     setBusy(true)
     setError(null)
     const trimmed = name.trim()
-    const { data: ok, error: rpcErr } = await supabase.rpc(
-      'verify_username_password',
-      { p_username: trimmed, p_password: password || null },
-    )
+    const { data: ok, error: rpcErr } = await supabase.rpc('verify_username_password', {
+      p_username: trimmed,
+      p_password: password || null,
+    })
     setBusy(false)
 
     if (rpcErr || !ok) {
@@ -296,12 +553,7 @@ function AccessGate({
       return
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('avatar_url')
-      .eq('username', trimmed)
-      .maybeSingle()
-
+    const { data: profile } = await supabase.from('profiles').select('avatar_url').eq('username', trimmed).maybeSingle()
     onSuccess(trimmed, profile?.avatar_url ?? null)
   }
 
@@ -316,9 +568,7 @@ function AccessGate({
     setError(null)
     const ext = file.name.split('.').pop() || 'png'
     const path = `${crypto.randomUUID()}.${ext}`
-    const { error: uploadErr } = await supabase.storage
-      .from('avatars')
-      .upload(path, file, { upsert: true })
+    const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
     if (uploadErr) {
       setError('تعذر رفع الصورة.')
       setUploading(false)
@@ -346,7 +596,6 @@ function AccessGate({
       setStep('name')
       return
     }
-
     onSuccess(trimmed, avatar)
   }
 
@@ -372,12 +621,8 @@ function AccessGate({
             />
             {error && <p className="chat-error">{error}</p>}
             <div className="chat-modal-actions">
-              <button type="button" className="chat-secondary-btn" onClick={onBack}>
-                إلغاء
-              </button>
-              <button type="submit" disabled={busy}>
-                {busy ? 'بيتحقق…' : 'متابعة'}
-              </button>
+              <button type="button" className="chat-secondary-btn" onClick={onBack}>إلغاء</button>
+              <button type="submit" disabled={busy}>{busy ? 'بيتحقق…' : 'متابعة'}</button>
             </div>
           </form>
         )}
@@ -394,20 +639,10 @@ function AccessGate({
             />
             {error && <p className="chat-error">{error}</p>}
             <div className="chat-modal-actions">
-              <button
-                type="button"
-                className="chat-secondary-btn"
-                onClick={() => {
-                  setStep('name')
-                  setPassword('')
-                  setError(null)
-                }}
-              >
+              <button type="button" className="chat-secondary-btn" onClick={() => { setStep('name'); setPassword(''); setError(null) }}>
                 رجوع
               </button>
-              <button type="submit" disabled={busy}>
-                {busy ? 'بيتحقق…' : 'دخول'}
-              </button>
+              <button type="submit" disabled={busy}>{busy ? 'بيتحقق…' : 'دخول'}</button>
             </div>
           </form>
         )}
@@ -418,27 +653,14 @@ function AccessGate({
               {avatar ? (
                 <img src={avatar} alt="avatar preview" />
               ) : (
-                <span className="chat-avatar-fallback chat-avatar-lg">
-                  {initials(name || '؟')}
-                </span>
+                <span className="chat-avatar-fallback chat-avatar-lg">{initials(name || '؟')}</span>
               )}
-              <input
-                type="file"
-                accept="image/*,image/gif"
-                onChange={handleFileChange}
-                hidden
-              />
-              <span className="chat-avatar-edit-label">
-                {uploading ? 'بيترفع…' : 'اختار صورة أو GIF (اختياري)'}
-              </span>
+              <input type="file" accept="image/*,image/gif" onChange={handleFileChange} hidden />
+              <span className="chat-avatar-edit-label">{uploading ? 'بيترفع…' : 'اختار صورة أو GIF (اختياري)'}</span>
             </label>
 
             <label className="chat-checkbox-row">
-              <input
-                type="checkbox"
-                checked={protectWithPassword}
-                onChange={(e) => setProtectWithPassword(e.target.checked)}
-              />
+              <input type="checkbox" checked={protectWithPassword} onChange={(e) => setProtectWithPassword(e.target.checked)} />
               احمِ اليوزرنيم ده بباسورد أو كلمة سرية
             </label>
 
@@ -455,19 +677,10 @@ function AccessGate({
             {error && <p className="chat-error">{error}</p>}
 
             <div className="chat-modal-actions">
-              <button
-                type="button"
-                className="chat-secondary-btn"
-                onClick={() => {
-                  setStep('name')
-                  setError(null)
-                }}
-              >
+              <button type="button" className="chat-secondary-btn" onClick={() => { setStep('name'); setError(null) }}>
                 رجوع
               </button>
-              <button type="submit" disabled={busy || uploading}>
-                {busy ? 'بيتحفظ…' : 'ادخل الشات'}
-              </button>
+              <button type="submit" disabled={busy || uploading}>{busy ? 'بيتحفظ…' : 'ادخل الشات'}</button>
             </div>
           </form>
         )}
@@ -476,8 +689,6 @@ function AccessGate({
   )
 }
 
-/** Settings modal: change username / avatar / password. Requires the current
- * password (if one is set) before applying any change. */
 function SettingsModal({
   currentUsername,
   currentAvatar,
@@ -511,9 +722,7 @@ function SettingsModal({
     setError(null)
     const ext = file.name.split('.').pop() || 'png'
     const path = `${crypto.randomUUID()}.${ext}`
-    const { error: uploadErr } = await supabase.storage
-      .from('avatars')
-      .upload(path, file, { upsert: true })
+    const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
     if (uploadErr) {
       setError('تعذر رفع الصورة.')
       setUploading(false)
@@ -535,10 +744,10 @@ function SettingsModal({
     setSaving(true)
     setError(null)
 
-    const { data: ok, error: verifyErr } = await supabase.rpc(
-      'verify_username_password',
-      { p_username: currentUsername, p_password: currentPassword || null },
-    )
+    const { data: ok, error: verifyErr } = await supabase.rpc('verify_username_password', {
+      p_username: currentUsername,
+      p_password: currentPassword || null,
+    })
 
     if (verifyErr || !ok) {
       setError('الباسورد الحالي غلط.')
@@ -575,19 +784,10 @@ function SettingsModal({
             {avatar ? (
               <img src={avatar} alt="avatar preview" />
             ) : (
-              <span className="chat-avatar-fallback chat-avatar-lg">
-                {initials(name || '؟')}
-              </span>
+              <span className="chat-avatar-fallback chat-avatar-lg">{initials(name || '؟')}</span>
             )}
-            <input
-              type="file"
-              accept="image/*,image/gif"
-              onChange={handleFileChange}
-              hidden
-            />
-            <span className="chat-avatar-edit-label">
-              {uploading ? 'بيترفع…' : 'غيّر الصورة (صورة أو GIF)'}
-            </span>
+            <input type="file" accept="image/*,image/gif" onChange={handleFileChange} hidden />
+            <span className="chat-avatar-edit-label">{uploading ? 'بيترفع…' : 'غيّر الصورة (صورة أو GIF)'}</span>
           </label>
 
           <input
@@ -607,11 +807,7 @@ function SettingsModal({
           />
 
           <label className="chat-checkbox-row">
-            <input
-              type="checkbox"
-              checked={wantsPasswordChange}
-              onChange={(e) => setWantsPasswordChange(e.target.checked)}
-            />
+            <input type="checkbox" checked={wantsPasswordChange} onChange={(e) => setWantsPasswordChange(e.target.checked)} />
             غيّر الباسورد / الكلمة السرية
           </label>
 
@@ -628,15 +824,9 @@ function SettingsModal({
           {error && <p className="chat-error">{error}</p>}
 
           <div className="chat-modal-actions">
-            <button type="button" className="chat-secondary-btn" onClick={onLogout}>
-              تسجيل خروج
-            </button>
-            <button type="button" className="chat-secondary-btn" onClick={onClose}>
-              إلغاء
-            </button>
-            <button type="submit" disabled={saving || uploading}>
-              {saving ? 'بيتحفظ…' : 'حفظ'}
-            </button>
+            <button type="button" className="chat-secondary-btn" onClick={onLogout}>تسجيل خروج</button>
+            <button type="button" className="chat-secondary-btn" onClick={onClose}>إلغاء</button>
+            <button type="submit" disabled={saving || uploading}>{saving ? 'بيتحفظ…' : 'حفظ'}</button>
           </div>
         </form>
       </div>
