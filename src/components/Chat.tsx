@@ -76,7 +76,8 @@ export default function Chat({ onBack }: { onBack: () => void }) {
     const channel = supabase
       .channel('public:chat-all')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        setMessages((prev) => [...prev, payload.new as ChatMessage])
+        const incoming = payload.new as ChatMessage
+        setMessages((prev) => (prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming]))
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
         const updated = payload.new as ChatMessage
@@ -175,12 +176,18 @@ export default function Chat({ onBack }: { onBack: () => void }) {
     if (!draft.trim() && !attachment) return
 
     if (editingId) {
-      const { error: editErr } = await supabase
+      const { data: updated, error: editErr } = await supabase
         .from('messages')
         .update({ content: draft.trim(), edited_at: new Date().toISOString() })
         .eq('id', editingId)
         .eq('username', username)
-      if (editErr) setError('تعذر تعديل الرسالة.')
+        .select()
+        .single()
+      if (editErr) {
+        setError('تعذر تعديل الرسالة.')
+      } else if (updated) {
+        setMessages((prev) => prev.map((m) => (m.id === updated.id ? (updated as ChatMessage) : m)))
+      }
       setEditingId(null)
       setDraft('')
       return
@@ -191,16 +198,26 @@ export default function Chat({ onBack }: { onBack: () => void }) {
     const attachmentToSend = attachment
     setAttachment(null)
     setTyping(false)
-
-    const { error: sendErr } = await supabase.from('messages').insert({
-      username,
-      content,
-      reply_to_id: replyTo?.id ?? null,
-      attachment_url: attachmentToSend?.url ?? null,
-      attachment_type: attachmentToSend?.type ?? null,
-    })
-    if (sendErr) setError('تعذر إرسال الرسالة.')
+    const pendingReplyTo = replyTo?.id ?? null
     setReplyTo(null)
+
+    const { data: sent, error: sendErr } = await supabase
+      .from('messages')
+      .insert({
+        username,
+        content,
+        reply_to_id: pendingReplyTo,
+        attachment_url: attachmentToSend?.url ?? null,
+        attachment_type: attachmentToSend?.type ?? null,
+      })
+      .select()
+      .single()
+
+    if (sendErr) {
+      setError('تعذر إرسال الرسالة.')
+    } else if (sent) {
+      setMessages((prev) => (prev.some((m) => m.id === sent.id) ? prev : [...prev, sent as ChatMessage]))
+    }
   }
 
   function startEdit(m: ChatMessage) {
@@ -213,8 +230,13 @@ export default function Chat({ onBack }: { onBack: () => void }) {
     if (!username) return
     const existing = reactions.find((r) => r.message_id === messageId && r.username === username)
     if (existing && existing.emoji === emoji) {
+      setReactions((prev) => prev.filter((r) => !(r.message_id === messageId && r.username === username)))
       await supabase.from('message_reactions').delete().eq('message_id', messageId).eq('username', username)
     } else {
+      setReactions((prev) => [
+        ...prev.filter((r) => !(r.message_id === messageId && r.username === username)),
+        { message_id: messageId, username, emoji, created_at: new Date().toISOString() },
+      ])
       await supabase
         .from('message_reactions')
         .upsert({ message_id: messageId, username, emoji }, { onConflict: 'message_id,username' })
@@ -224,6 +246,11 @@ export default function Chat({ onBack }: { onBack: () => void }) {
 
   async function deleteMessage(m: ChatMessage) {
     if (!username) return
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === m.id ? { ...msg, deleted: true, content: '', attachment_url: null, attachment_type: null } : msg,
+      ),
+    )
     await supabase
       .from('messages')
       .update({ deleted: true, content: '', attachment_url: null, attachment_type: null })
@@ -232,6 +259,7 @@ export default function Chat({ onBack }: { onBack: () => void }) {
   }
 
   async function togglePin(m: ChatMessage) {
+    setMessages((prev) => prev.map((msg) => (msg.id === m.id ? { ...msg, pinned: !msg.pinned } : msg)))
     await supabase.from('messages').update({ pinned: !m.pinned }).eq('id', m.id)
   }
 
@@ -428,7 +456,12 @@ export default function Chat({ onBack }: { onBack: () => void }) {
 
       {typingOthers.length > 0 && (
         <p className="chat-typing-indicator">
-          {typingOthers.join('، ')} {typingOthers.length === 1 ? 'بيكتب' : 'بيكتبوا'}…
+          {typingOthers.join('، ')} {typingOthers.length === 1 ? 'بيكتب' : 'بيكتبوا'}
+          <span className="chat-typing-dots">
+            <span />
+            <span />
+            <span />
+          </span>
         </p>
       )}
 

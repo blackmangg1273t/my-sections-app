@@ -34,6 +34,15 @@ function App() {
         {navOpen ? '✕ قفل القائمة' : '☰ الأقسام'}
       </button>
 
+      {navOpen && (
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          aria-label="قفل القائمة"
+          onClick={() => setNavOpen(false)}
+        />
+      )}
+
       <aside className={`sidebar${navOpen ? ' sidebar-open' : ''}`} aria-label="فهرس الأقسام">
         <button type="button" className="sidebar-brand" onClick={() => selectSection('')}>
           <span className="sidebar-brand-mark">MS</span>
