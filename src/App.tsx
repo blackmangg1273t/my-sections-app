@@ -2,92 +2,139 @@ import { useState } from 'react'
 import { sections } from './data/sections'
 import Chat from './components/Chat'
 
-function App() {
-  const hasSections = sections.length > 0
-  const [view, setView] = useState<'home' | 'chat'>('home')
+function pad(n: number) {
+  return String(n).padStart(2, '0')
+}
 
-  if (view === 'chat') {
-    return <Chat onBack={() => setView('home')} />
+function App() {
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [navOpen, setNavOpen] = useState(false)
+
+  if (chatOpen) {
+    return <Chat onBack={() => setChatOpen(false)} />
+  }
+
+  const selected = sections.find((s) => s.id === selectedId) ?? null
+  const latest = [...sections].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0]
+
+  function selectSection(id: string) {
+    setSelectedId(id)
+    setNavOpen(false)
   }
 
   return (
-    <main className="app-shell">
-      <header className="site-header" aria-label="رأس الموقع">
-        <a className="brand" href="/" aria-label="my sections app">
-          My Sections
-        </a>
-        <span className="status">{sections.length} أقسام</span>
-      </header>
+    <div className="layout">
+      <button
+        type="button"
+        className="nav-toggle"
+        onClick={() => setNavOpen((v) => !v)}
+        aria-expanded={navOpen}
+      >
+        {navOpen ? '✕ قفل القائمة' : '☰ الأقسام'}
+      </button>
 
-      <section className="intro" aria-labelledby="intro-title">
-        <div>
-          <p className="eyebrow">مساحة مشتركة للأفكار</p>
-          <h1 id="intro-title">كل برومبت يتحول إلى قسم مستقل.</h1>
-          <p className="intro-copy">
-            الموقع جاهز لك وللأصدقاء. كل فكرة جديدة تظهر هنا كقسم منظم، مع
-            ملخص سريع والنص الكامل للبرومبت عند الحاجة.
-          </p>
-        </div>
-      </section>
+      <aside className={`sidebar${navOpen ? ' sidebar-open' : ''}`} aria-label="فهرس الأقسام">
+        <button type="button" className="sidebar-brand" onClick={() => selectSection('')}>
+          <span className="sidebar-brand-mark">MS</span>
+          <span className="sidebar-brand-text">
+            My Sections
+            <em>فهرس البرومبتات</em>
+          </span>
+        </button>
 
-      <section className="sections-area" aria-labelledby="sections-title">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">الأقسام</p>
-            <h2 id="sections-title">مساحة الأقسام</h2>
-          </div>
-          <span className="counter">{sections.length}</span>
-        </div>
+        <nav className="sidebar-nav">
+          <button
+            type="button"
+            className={`sidebar-home-link${selectedId === null ? ' sidebar-item-active' : ''}`}
+            onClick={() => selectSection('')}
+          >
+            الصفحة الرئيسية
+          </button>
 
-        {hasSections ? (
-          <div className="section-grid">
-            {sections.map((section) => (
-              <article className="section-card" key={section.id}>
-                <div className="section-meta">
-                  <time dateTime={section.createdAt}>{section.createdAt}</time>
-                  <div className="tag-list" aria-label="وسوم القسم">
-                    {section.tags.map((tag) => (
-                      <span key={tag}>{tag}</span>
-                    ))}
-                  </div>
-                </div>
+          <p className="sidebar-label">الفهرس · {sections.length}</p>
 
-                <h3>{section.title}</h3>
-                <p>{section.description}</p>
-
-                {section.id === 'secure-messaging-platform' && (
-                  <button
-                    type="button"
-                    className="chat-launch-btn"
-                    onClick={() => setView('chat')}
-                  >
-                    افتح الشات المباشر ↗
-                  </button>
-                )}
-
-                <ul className="highlight-list">
-                  {section.highlights.map((highlight) => (
-                    <li key={highlight}>{highlight}</li>
-                  ))}
-                </ul>
-
-                <details className="prompt-panel">
-                  <summary>عرض البرومبت الكامل</summary>
-                  <pre>{section.content}</pre>
-                </details>
-              </article>
+          <ol className="sidebar-list">
+            {sections.map((section, index) => (
+              <li key={section.id}>
+                <button
+                  type="button"
+                  className={`sidebar-item${selectedId === section.id ? ' sidebar-item-active' : ''}`}
+                  onClick={() => selectSection(section.id)}
+                >
+                  <span className="sidebar-index">{pad(index + 1)}</span>
+                  <span className="sidebar-item-title">{section.title}</span>
+                </button>
+              </li>
             ))}
-          </div>
-        ) : (
-          <div className="empty-state">
-            <p className="empty-title">جاهز للقسم الأول</p>
-            <p>
-              عند إرسال أول برومبت، سيظهر هنا كقسم مستقل بعنوان ووصف ومحتوى.
+          </ol>
+        </nav>
+      </aside>
+
+      <main className="main-area">
+        {!selected ? (
+          <section className="welcome">
+            <p className="eyebrow">أهلاً بيك</p>
+            <h1>مساحة واحدة، لكل فكرة قسمها الخاص.</h1>
+            <p className="welcome-copy">
+              كل برومبت بتبعته بيتحول هنا لقسم مستقل: عنوان، وصف، ووسوم، والنص
+              الكامل عند الحاجة. اختار قسم من الفهرس على الجنب عشان تبدأ.
             </p>
-          </div>
+
+            <div className="welcome-stats">
+              <div className="stat-card">
+                <span className="stat-number">{pad(sections.length)}</span>
+                <span className="stat-label">قسم مسجّل</span>
+              </div>
+              {latest && (
+                <div className="stat-card">
+                  <span className="stat-number">{latest.createdAt}</span>
+                  <span className="stat-label">آخر إضافة — {latest.title}</span>
+                </div>
+              )}
+            </div>
+
+            {sections.length === 0 && (
+              <div className="empty-state">
+                <p className="empty-title">جاهز للقسم الأول</p>
+                <p>عند إرسال أول برومبت، سيظهر هنا كقسم مستقل بعنوان ووصف ومحتوى.</p>
+              </div>
+            )}
+          </section>
+        ) : (
+          <section className="section-detail" aria-labelledby="section-detail-title">
+            <div className="section-detail-meta">
+              <time dateTime={selected.createdAt}>{selected.createdAt}</time>
+              <div className="tag-list" aria-label="وسوم القسم">
+                {selected.tags.map((tag) => (
+                  <span key={tag}>{tag}</span>
+                ))}
+              </div>
+            </div>
+
+            <h1 id="section-detail-title">{selected.title}</h1>
+            <p className="section-detail-desc">{selected.description}</p>
+
+            {selected.id === 'secure-messaging-platform' && (
+              <button type="button" className="chat-launch-btn" onClick={() => setChatOpen(true)}>
+                افتح الشات المباشر ↗
+              </button>
+            )}
+
+            <ul className="highlight-list">
+              {selected.highlights.map((highlight) => (
+                <li key={highlight}>{highlight}</li>
+              ))}
+            </ul>
+
+            <details className="prompt-panel">
+              <summary>عرض البرومبت الكامل</summary>
+              <pre>{selected.content}</pre>
+            </details>
+          </section>
         )}
-      </section>
-    </main>
+      </main>
+    </div>
   )
 }
 
