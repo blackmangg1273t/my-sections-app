@@ -137,7 +137,7 @@ function App() {
             </ul>
 
             <details className="prompt-panel">
-              <summary>عرض البرومبت الكامل</summary>
+              <summary>عرض التفاصيل الكاملة</summary>
               <pre>{selected.content}</pre>
             </details>
           </section>
