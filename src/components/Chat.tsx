@@ -1,5 +1,22 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
+  ArrowRight,
+  Check,
+  CheckCheck,
+  Image as ImageIcon,
+  Palette,
+  Paperclip,
+  Pencil,
+  Pin,
+  PinOff,
+  Reply,
+  Search,
+  Send,
+  Smile,
+  Trash2,
+  X,
+} from 'lucide-react'
+import {
   supabase,
   type ChatMessage,
   type ChatRead,
@@ -12,6 +29,7 @@ import { usePresence } from '../lib/usePresence'
 
 type ProfilesByUsername = Record<string, Profile>
 const QUICK_EMOJIS = ['❤️', '😂', '👍', '😮', '😢', '🔥']
+const GROUP_WINDOW_MS = 5 * 60 * 1000
 
 function initials(name: string) {
   return name.trim().slice(0, 2).toUpperCase()
@@ -283,7 +301,7 @@ export default function Chat({ onBack }: { onBack: () => void }) {
     <div className="chat-shell" data-theme={theme}>
       <header className="chat-header">
         <button type="button" className="chat-back" onClick={onBack}>
-          ← رجوع
+          <ArrowRight size={16} strokeWidth={2.5} /> رجوع
         </button>
         <div className="chat-header-title">
           <h2>NULLPOINT</h2>
@@ -292,10 +310,10 @@ export default function Chat({ onBack }: { onBack: () => void }) {
         </div>
         <div className="chat-header-actions">
           <button type="button" className="chat-icon-btn" title="بحث" onClick={() => setShowSearch((v) => !v)}>
-            🔍
+            <Search size={17} />
           </button>
           <button type="button" className="chat-icon-btn" title="الثيمات" onClick={() => setShowThemes((v) => !v)}>
-            🎨
+            <Palette size={17} />
           </button>
           <button type="button" className="chat-me" onClick={() => setShowSettings(true)}>
             {avatarUrl ? (
@@ -320,7 +338,7 @@ export default function Chat({ onBack }: { onBack: () => void }) {
               onClick={() => setTheme(t.id)}
               title={t.label}
             >
-              {theme === t.id ? '✓' : ''}
+              {theme === t.id ? <Check size={14} color="#14342b" /> : ''}
             </button>
           ))}
         </div>
@@ -340,7 +358,8 @@ export default function Chat({ onBack }: { onBack: () => void }) {
 
       {pinnedMessage && !showSearch && (
         <div className="chat-pinned-banner">
-          📌 <span className="chat-pinned-name">{pinnedMessage.username}:</span>{' '}
+          <Pin size={14} />
+          <span className="chat-pinned-name">{pinnedMessage.username}:</span>{' '}
           <span className="chat-pinned-text">{pinnedMessage.content || 'مرفق'}</span>
         </div>
       )}
@@ -355,7 +374,7 @@ export default function Chat({ onBack }: { onBack: () => void }) {
             {showSearch && searchQuery ? 'مفيش نتائج' : 'لسه مفيش رسائل، ابدأ أول واحدة!'}
           </p>
         ) : (
-          visibleMessages.map((m) => {
+          visibleMessages.map((m, index) => {
             const isMine = m.username === username
             const profile = profiles[m.username]
             const repliedMsg = m.reply_to_id ? messageById.get(m.reply_to_id) : null
@@ -365,17 +384,30 @@ export default function Chat({ onBack }: { onBack: () => void }) {
             const myReaction = msgReactions.find((r) => r.username === username)?.emoji
             const isSeen = isMine && !!otherUsersLastRead && otherUsersLastRead >= m.created_at
 
+            const prev = visibleMessages[index - 1]
+            const isGroupStart =
+              !prev ||
+              prev.username !== m.username ||
+              new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() > GROUP_WINDOW_MS
+
             return (
-              <div key={m.id} className={`chat-bubble-row${isMine ? ' chat-bubble-row-mine' : ''}`}>
-                {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt={m.username} className="chat-avatar-sm" />
+              <div
+                key={m.id}
+                className={`chat-bubble-row${isMine ? ' chat-bubble-row-mine' : ''}${isGroupStart ? '' : ' chat-bubble-row-grouped'}`}
+              >
+                {isGroupStart ? (
+                  profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt={m.username} className="chat-avatar-sm" />
+                  ) : (
+                    <span className="chat-avatar-sm chat-avatar-fallback">{initials(m.username)}</span>
+                  )
                 ) : (
-                  <span className="chat-avatar-sm chat-avatar-fallback">{initials(m.username)}</span>
+                  <span className="chat-avatar-spacer" />
                 )}
 
                 <div className="chat-bubble-col">
                   <div className={`chat-bubble${isMine ? ' chat-bubble-mine' : ''}`}>
-                    <span className="chat-bubble-name">{m.username}</span>
+                    {isGroupStart && <span className="chat-bubble-name">{m.username}</span>}
 
                     {repliedMsg && (
                       <div className="chat-reply-quote">
@@ -385,7 +417,9 @@ export default function Chat({ onBack }: { onBack: () => void }) {
                     )}
 
                     {m.deleted ? (
-                      <p className="chat-deleted-text">🗑 تم حذف الرسالة</p>
+                      <p className="chat-deleted-text">
+                        <Trash2 size={13} /> تم حذف الرسالة
+                      </p>
                     ) : (
                       <>
                         {m.attachment_url && (
@@ -398,7 +432,11 @@ export default function Chat({ onBack }: { onBack: () => void }) {
                     <time>
                       {new Date(m.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
                       {m.edited_at && ' · معدّلة'}
-                      {isMine && (isSeen ? ' · ✓✓ اتقرأت' : ' · ✓ اتبعتت')}
+                      {isMine && (
+                        <span className="chat-receipt">
+                          {isSeen ? <CheckCheck size={13} /> : <Check size={13} />}
+                        </span>
+                      )}
                     </time>
 
                     {msgReactions.length > 0 && (
@@ -419,20 +457,35 @@ export default function Chat({ onBack }: { onBack: () => void }) {
 
                   {!m.deleted && (
                     <div className="chat-bubble-actions">
-                      <button type="button" onClick={() => setReactionPickerFor(reactionPickerFor === m.id ? null : m.id)}>
-                        😊
+                      <button
+                        type="button"
+                        title="رياكشن"
+                        onClick={() => setReactionPickerFor(reactionPickerFor === m.id ? null : m.id)}
+                      >
+                        <Smile size={14} />
                       </button>
-                      <button type="button" onClick={() => { setReplyTo(m); setEditingId(null) }}>
-                        ↩ رد
+                      <button
+                        type="button"
+                        title="رد"
+                        onClick={() => {
+                          setReplyTo(m)
+                          setEditingId(null)
+                        }}
+                      >
+                        <Reply size={14} />
                       </button>
                       {isMine && (
                         <>
-                          <button type="button" onClick={() => startEdit(m)}>✏️ تعديل</button>
-                          <button type="button" onClick={() => deleteMessage(m)}>🗑 حذف</button>
+                          <button type="button" title="تعديل" onClick={() => startEdit(m)}>
+                            <Pencil size={14} />
+                          </button>
+                          <button type="button" title="حذف" onClick={() => deleteMessage(m)}>
+                            <Trash2 size={14} />
+                          </button>
                         </>
                       )}
-                      <button type="button" onClick={() => togglePin(m)}>
-                        {m.pinned ? '📌 إلغاء التثبيت' : '📌 تثبيت'}
+                      <button type="button" title={m.pinned ? 'إلغاء التثبيت' : 'تثبيت'} onClick={() => togglePin(m)}>
+                        {m.pinned ? <PinOff size={14} /> : <Pin size={14} />}
                       </button>
                     </div>
                   )}
@@ -468,7 +521,15 @@ export default function Chat({ onBack }: { onBack: () => void }) {
       {(replyTo || editingId) && (
         <div className="chat-composer-context">
           <span>
-            {editingId ? '✏️ بتعدّل رسالة' : `↩ بترد على ${replyTo?.username}`}
+            {editingId ? (
+              <>
+                <Pencil size={13} /> بتعدّل رسالة
+              </>
+            ) : (
+              <>
+                <Reply size={13} /> بترد على {replyTo?.username}
+              </>
+            )}
             {replyTo && <em>{replyTo.content}</em>}
           </span>
           <button
@@ -479,21 +540,25 @@ export default function Chat({ onBack }: { onBack: () => void }) {
               setDraft('')
             }}
           >
-            ✕
+            <X size={15} />
           </button>
         </div>
       )}
 
       {attachment && (
         <div className="chat-composer-context">
-          <span>🖼 صورة مرفقة</span>
-          <button type="button" onClick={() => setAttachment(null)}>✕</button>
+          <span>
+            <ImageIcon size={13} /> صورة مرفقة
+          </span>
+          <button type="button" onClick={() => setAttachment(null)}>
+            <X size={15} />
+          </button>
         </div>
       )}
 
       <form className="chat-input-row" onSubmit={handleSend}>
         <label className="chat-attach-btn" title="أرفق صورة أو GIF">
-          {uploadingAttachment ? '…' : '📎'}
+          {uploadingAttachment ? <span className="chat-mini-spinner" /> : <Paperclip size={18} />}
           <input type="file" accept="image/*,image/gif" onChange={handleAttachmentChange} hidden />
         </label>
         <input
@@ -506,8 +571,8 @@ export default function Chat({ onBack }: { onBack: () => void }) {
           placeholder="اكتب رسالة…"
           maxLength={2000}
         />
-        <button type="submit" disabled={!draft.trim() && !attachment}>
-          {editingId ? 'حفظ' : 'إرسال'}
+        <button type="submit" className="chat-send-btn" disabled={!draft.trim() && !attachment} aria-label={editingId ? 'حفظ' : 'إرسال'}>
+          {editingId ? <Check size={18} /> : <Send size={17} />}
         </button>
       </form>
 
