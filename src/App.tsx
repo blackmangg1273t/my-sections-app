@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { sections } from './data/sections'
 import Chat from './components/Chat'
+import YtDlpTool from './components/YtDlpTool'
 
 function pad(n: number) {
   return String(n).padStart(2, '0')
@@ -9,10 +10,15 @@ function pad(n: number) {
 function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [chatOpen, setChatOpen] = useState(false)
+  const [ytDlpOpen, setYtDlpOpen] = useState(false)
   const [navOpen, setNavOpen] = useState(false)
 
   if (chatOpen) {
     return <Chat onBack={() => setChatOpen(false)} />
+  }
+
+  if (ytDlpOpen) {
+    return <YtDlpTool onBack={() => setYtDlpOpen(false)} />
   }
 
   const selected = sections.find((s) => s.id === selectedId) ?? null
@@ -127,6 +133,12 @@ function App() {
             {selected.id === 'secure-messaging-platform' && (
               <button type="button" className="chat-launch-btn" onClick={() => setChatOpen(true)}>
                 افتح الشات المباشر ↗
+              </button>
+            )}
+
+            {selected.id === 'universal-media-downloader' && (
+              <button type="button" className="chat-launch-btn" onClick={() => setYtDlpOpen(true)}>
+                افتح أداة التحميل ↗
               </button>
             )}
 
