@@ -148,10 +148,10 @@ function App() {
               ))}
             </ul>
 
-            <details className="prompt-panel">
-              <summary>عرض التفاصيل الكاملة</summary>
+            <div className="prompt-panel-direct">
+              <h3 className="panel-label">المحتوى الكامل:</h3>
               <pre>{selected.content}</pre>
-            </details>
+            </div>
           </section>
         )}
       </main>
