@@ -42,6 +42,7 @@ interface Progress {
   stage: string
   status: 'running' | 'done' | 'error'
   error: string | null
+  notice: string | null
   files: { name: string; size: number }[]
 }
 
@@ -530,6 +531,13 @@ export default function YtDlpTool({ onBack, purpose }: YtDlpToolProps) {
             </p>
 
             {progress.status === 'error' && <p className="ytdlp-error">{progress.error}</p>}
+
+            {progress.notice && (
+              <p className="ytdlp-inline-warn">
+                <TriangleAlert className="w-4 h-4" aria-hidden="true" />
+                {progress.notice}
+              </p>
+            )}
 
             {progress.status === 'done' && (
               <ul className="ytdlp-files">

@@ -60,34 +60,58 @@ function cookieArgs(browser) {
   return browser && BROWSERS.includes(browser) ? ['--cookies-from-browser', browser] : []
 }
 
-function buildArgs(opts, outDir) {
+/**
+ * بناء وسائط yt-dlp. `ffmpeg` مطلوب للدمج/التحويل/التضمين، فلو مش موجود
+ * نتجاهل الخيارات المعتمدة عليه بدل ما التحميل كله يفشل في مرحلة المعالجة.
+ */
+function buildArgs(opts, outDir, ffmpeg = true) {
   const args = ['--newline', '--no-warnings', '--ignore-config', ...cookieArgs(opts.cookiesBrowser)]
+  const skipped = []
 
   if (opts.mode === 'audio') {
-    args.push('-x', '--audio-format', opts.audioFormat || 'mp3', '--audio-quality', '0')
+    if (ffmpeg) {
+      args.push('-x', '--audio-format', opts.audioFormat || 'mp3', '--audio-quality', '0')
+    } else {
+      // بدون ffmpeg لا يمكن استخراج/تحويل الصوت، فنجيب أفضل مسار صوتي جاهز
+      args.push('-f', 'ba/b')
+      skipped.push('تحويل الصوت')
+    }
   } else {
     const h = opts.quality
-    args.push(
-      '-f',
-      h === 'best'
-        ? 'bv*+ba/b'
-        : `bv*[height<=${h}]+ba/b[height<=${h}]/wv*+ba/w`,
-    )
+    // الدمج يحتاج ffmpeg، فبدونه نطلب ملفًا واحدًا مدموجًا مسبقًا
+    const merged = h === 'best' ? 'bv*+ba/b' : `bv*[height<=${h}]+ba/b[height<=${h}]/wv*+ba/w`
+    const single = h === 'best' ? 'b' : `b[height<=${h}]/w`
+    args.push('-f', ffmpeg ? merged : single)
+
     if (opts.container && opts.container !== 'auto') {
-      args.push('--merge-output-format', opts.container)
+      if (ffmpeg) args.push('--merge-output-format', opts.container)
+      else skipped.push('تغيير الحاوية')
     }
   }
 
   if (opts.subtitles) {
     args.push('--write-subs', '--write-auto-subs', '--sub-langs', opts.subLangs || 'ar,en')
-    if (opts.mode !== 'audio') args.push('--embed-subs')
+    if (opts.mode !== 'audio' && ffmpeg) args.push('--embed-subs')
   }
-  if (opts.thumbnail) args.push('--embed-thumbnail')
-  if (opts.metadata) args.push('--embed-metadata')
+  if (opts.thumbnail) {
+    if (ffmpeg) args.push('--embed-thumbnail')
+    else {
+      args.push('--write-thumbnail')
+      skipped.push('تضمين الصورة المصغّرة')
+    }
+  }
+  if (opts.metadata) {
+    if (ffmpeg) args.push('--embed-metadata')
+    else skipped.push('تضمين البيانات الوصفية')
+  }
   if (opts.sponsorblock && opts.mode !== 'audio') {
-    args.push('--sponsorblock-remove', 'sponsor,selfpromo,interaction')
+    if (ffmpeg) args.push('--sponsorblock-remove', 'sponsor,selfpromo,interaction')
+    else skipped.push('تخطّي الإعلانات')
   }
-  if (opts.section?.trim()) args.push('--download-sections', `*${opts.section.trim()}`)
+  if (opts.section?.trim()) {
+    if (ffmpeg) args.push('--download-sections', `*${opts.section.trim()}`)
+    else skipped.push('المقطع الزمني')
+  }
   args.push(opts.playlist ? '--yes-playlist' : '--no-playlist')
 
   args.push(
@@ -96,7 +120,7 @@ function buildArgs(opts, outDir) {
   )
   args.push('-P', outDir, '-o', '%(title).150B.%(ext)s')
   args.push('--', opts.url)
-  return args
+  return { args, skipped }
 }
 
 function isHttpUrl(value) {
@@ -185,6 +209,9 @@ async function startJob(opts) {
   const outDir = path.join(DOWNLOAD_ROOT, id)
   await fs.mkdir(outDir, { recursive: true })
 
+  const ffmpeg = await hasFfmpeg()
+  const { args, skipped } = buildArgs(opts, outDir, ffmpeg)
+
   const job = {
     id,
     outDir,
@@ -195,12 +222,13 @@ async function startJob(opts) {
     total: '',
     stage: 'جاري التحضير…',
     error: null,
+    notice: skipped.length ? `تم تجاهل (بدون ffmpeg): ${skipped.join('، ')}` : null,
     files: [],
     listeners: new Set(),
   }
   jobs.set(id, job)
 
-  const child = spawn(bin.cmd, [...bin.prefix, ...buildArgs(opts, outDir)], {
+  const child = spawn(bin.cmd, [...bin.prefix, ...args], {
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   job.child = child
@@ -214,6 +242,7 @@ async function startJob(opts) {
       stage: job.stage,
       status: job.status,
       error: job.error,
+      notice: job.notice,
       files: job.files,
     })
     for (const res of job.listeners) res.write(`data: ${snapshot}\n\n`)
@@ -264,10 +293,15 @@ async function startJob(opts) {
       job.files = []
     }
 
-    if (code === 0 && job.files.length) {
+    // لو الملف نزل فعليًا نعتبره ناجحًا حتى لو فشلت مرحلة المعالجة (ffmpeg مثلًا)
+    if (job.files.length) {
       job.status = 'done'
       job.percent = 100
       job.stage = 'تم التحميل'
+      if (code !== 0 && job.error) {
+        job.notice = job.notice ? `${job.notice} · ${job.error}` : job.error
+        job.error = null
+      }
     } else {
       job.status = 'error'
       job.error = job.error ?? `توقف yt-dlp بالرمز ${code}`
