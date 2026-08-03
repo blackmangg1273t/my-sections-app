@@ -1,3 +1,7 @@
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
 :root {
   --ink: #1b1b1f;
   --paper: #f7f2ea;
@@ -299,6 +303,18 @@ h1 {
   font-size: 0.72rem;
   font-weight: 800;
   padding: 4px 10px;
+}
+
+.tool-purpose-bar {
+  background: var(--sand-chip);
+  border-bottom: 1px solid #c8d8d0;
+  color: var(--forest);
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0;
+  padding: 8px 16px;
+  text-align: center;
 }
 
 .section-purpose-text {

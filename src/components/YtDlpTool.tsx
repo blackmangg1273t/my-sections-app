@@ -3,9 +3,10 @@ import { Copy, Settings, Info, ArrowRight } from 'lucide-react';
 
 interface YtDlpToolProps {
   onBack: () => void;
+  purpose?: string;
 }
 
-export default function YtDlpTool({ onBack }: YtDlpToolProps) {
+export default function YtDlpTool({ onBack, purpose }: YtDlpToolProps) {
   const [url, setUrl] = useState('');
   const [format, setFormat] = useState('best');
   const [audioOnly, setAudioOnly] = useState(false);
@@ -77,12 +78,10 @@ export default function YtDlpTool({ onBack }: YtDlpToolProps) {
         </h1>
       </div>
 
-      {/* Description */}
-      <div className="text-center mb-8">
-        <p className="text-gray-600">
-          قم بتوليد أوامر yt-dlp مخصصة لتحميل الفيديوهات بجودة عالية
-        </p>
-      </div>
+      {/* وظيفة القسم في جملة قصيرة */}
+      <p className="tool-purpose-bar mb-8">
+        {purpose ?? 'تنزيل فيديو وصوت من المواقع'}
+      </p>
 
       {/* Main Card */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
