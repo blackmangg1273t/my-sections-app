@@ -7,21 +7,25 @@ function pad(n: number) {
   return String(n).padStart(2, '0')
 }
 
+/** الأقسام التي فيها أداة جاهزة تُفتح مباشرة عند الدخول للقسم */
+const TOOL_SECTIONS = ['secure-messaging-platform', 'universal-media-downloader']
+
 function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [chatOpen, setChatOpen] = useState(false)
-  const [ytDlpOpen, setYtDlpOpen] = useState(false)
   const [navOpen, setNavOpen] = useState(false)
 
-  if (chatOpen) {
-    return <Chat onBack={() => setChatOpen(false)} />
-  }
-
-  if (ytDlpOpen) {
-    return <YtDlpTool onBack={() => setYtDlpOpen(false)} />
-  }
-
   const selected = sections.find((s) => s.id === selectedId) ?? null
+
+  if (selected && TOOL_SECTIONS.includes(selected.id)) {
+    const goHome = () => setSelectedId(null)
+
+    if (selected.id === 'secure-messaging-platform') {
+      return <Chat onBack={goHome} purpose={selected.purpose} />
+    }
+
+    return <YtDlpTool onBack={goHome} purpose={selected.purpose} />
+  }
+
   const latest = [...sections].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0]
 
   function selectSection(id: string) {
@@ -118,6 +122,11 @@ function App() {
           </section>
         ) : (
           <section className="section-detail" aria-labelledby="section-detail-title">
+            <p className="section-purpose">
+              <span className="section-purpose-label">وظيفة القسم</span>
+              <span className="section-purpose-text">{selected.purpose}</span>
+            </p>
+
             <div className="section-detail-meta">
               <time dateTime={selected.createdAt}>{selected.createdAt}</time>
               <div className="tag-list" aria-label="وسوم القسم">
@@ -129,18 +138,6 @@ function App() {
 
             <h1 id="section-detail-title">{selected.title}</h1>
             <p className="section-detail-desc">{selected.description}</p>
-
-            {selected.id === 'secure-messaging-platform' && (
-              <button type="button" className="chat-launch-btn" onClick={() => setChatOpen(true)}>
-                افتح الشات المباشر ↗
-              </button>
-            )}
-
-            {selected.id === 'universal-media-downloader' && (
-              <button type="button" className="chat-launch-btn" onClick={() => setYtDlpOpen(true)}>
-                افتح أداة التحميل ↗
-              </button>
-            )}
 
             <ul className="highlight-list">
               {selected.highlights.map((highlight) => (

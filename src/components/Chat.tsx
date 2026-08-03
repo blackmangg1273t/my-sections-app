@@ -35,7 +35,7 @@ function initials(name: string) {
   return name.trim().slice(0, 2).toUpperCase()
 }
 
-export default function Chat({ onBack }: { onBack: () => void }) {
+export default function Chat({ onBack, purpose }: { onBack: () => void; purpose?: string }) {
   const { username, avatarUrl, setUsername, setAvatarUrl, clearIdentity } =
     useLocalIdentity()
   const { theme, setTheme } = useChatTheme()
@@ -326,6 +326,8 @@ export default function Chat({ onBack }: { onBack: () => void }) {
           </button>
         </div>
       </header>
+
+      {purpose && <p className="tool-purpose-bar">{purpose}</p>}
 
       {showThemes && (
         <div className="chat-theme-row">
@@ -883,7 +885,7 @@ function SettingsModal({
     <div className="chat-modal-backdrop">
       <div className="chat-modal">
         <h3>إعدادات الحساب</h3>
-        <p className="chat-modal-copy">غيّر اليوزرنيم أو الصورة أو الباسورد وقت ما تحب.</p>
+        <p className="chat-modal-copy">غيّر ال��وزرنيم أو الصورة أو الباسورد وقت ما تحب.</p>
 
         <form onSubmit={handleSave}>
           <label className="chat-avatar-picker">

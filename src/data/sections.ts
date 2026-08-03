@@ -1,6 +1,8 @@
 export type SiteSection = {
   id: string
   title: string
+  /** وظيفة القسم في جملة قصيرة (٥ كلمات) */
+  purpose: string
   description: string
   content: string
   createdAt: string
@@ -12,6 +14,7 @@ export const sections: SiteSection[] = [
   {
     id: 'secure-messaging-platform',
     title: 'Secure Messaging Platform',
+    purpose: 'دردشة آمنة مشفّرة بين الطرفين',
     description:
       'Prompt لبناء منصة مراسلة آمنة بمستوى إنتاجي، مع تشفير طرفي حقيقي، بنية قابلة للتوسع، وتوثيق واختبارات كاملة.',
     createdAt: '2026-07-09',
@@ -379,6 +382,7 @@ Complete documentation.`,
   {
     id: 'universal-media-downloader',
     title: 'المُحمّل الشامل: فيديو وصوت من أي موقع تقريبًا',
+    purpose: 'تنزيل فيديو وصوت من المواقع',
     description:
       'أداة سطر أوامر مجانية ومفتوحة المصدر (yt-dlp) لتنزيل الفيديو والصوت من آلاف المواقع، مع تحكم كامل في الجودة والصيغة والترجمات والبيانات الوصفية.',
     createdAt: '2026-07-14',
@@ -401,7 +405,7 @@ Complete documentation.`,
 
 التثبيت
 - عبر pip: pip install -U yt-dlp
-- أو تحميل ملف تنفيذي جاهز لويندوز / ماك / لينكس من صفحة الإصدارات على GitHub مباشرة بدون الحاجة لتثبيت Python.
+- أو تحميل ملف تنفيذي جاهز لويندوز / ماك / لينكس من صفحة الإصدارات على GitHub مباشرة بدون الحاجة ��تثبيت Python.
 
 أهم الاستخدامات
 
