@@ -118,6 +118,11 @@ function App() {
           </section>
         ) : (
           <section className="section-detail" aria-labelledby="section-detail-title">
+            <p className="section-purpose">
+              <span className="section-purpose-label">وظيفة القسم</span>
+              <span className="section-purpose-text">{selected.purpose}</span>
+            </p>
+
             <div className="section-detail-meta">
               <time dateTime={selected.createdAt}>{selected.createdAt}</time>
               <div className="tag-list" aria-label="وسوم القسم">

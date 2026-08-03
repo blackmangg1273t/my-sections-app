@@ -280,6 +280,34 @@ h1 {
   max-width: 820px;
 }
 
+.section-purpose {
+  align-items: center;
+  background: var(--sand-chip);
+  border: 1px solid #c8d8d0;
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+}
+
+.section-purpose-label {
+  background: var(--forest);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 10px;
+}
+
+.section-purpose-text {
+  color: var(--forest);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .section-detail-meta {
   align-items: flex-start;
   display: flex;
