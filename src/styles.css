@@ -305,6 +305,332 @@ h1 {
   padding: 4px 10px;
 }
 
+/* ============ أداة التحميل ============ */
+
+.ytdlp {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.ytdlp-bar {
+  align-items: center;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+
+.ytdlp-back {
+  align-items: center;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--forest);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 700;
+  gap: 6px;
+  padding: 7px 14px;
+}
+
+.ytdlp-back:hover {
+  background: var(--sand-chip);
+}
+
+.ytdlp-status {
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 5px 12px;
+}
+
+.ytdlp-status.is-on {
+  background: var(--sand-chip);
+  color: var(--forest);
+}
+
+.ytdlp-status.is-off {
+  background: #f6e2da;
+  color: var(--rust);
+}
+
+.ytdlp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0 auto;
+  max-width: 780px;
+  padding: 20px 16px 48px;
+  width: 100%;
+}
+
+.ytdlp-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.ytdlp-panel--warn {
+  background: var(--sand-chip);
+  border-color: #c8d8d0;
+}
+
+.ytdlp-panel-title {
+  align-items: center;
+  color: var(--forest);
+  display: flex;
+  font-size: 1.05rem;
+  gap: 8px;
+  margin: 0;
+}
+
+.ytdlp-label {
+  color: var(--forest);
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.ytdlp-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ytdlp-input {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  flex: 1 1 260px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 11px 13px;
+  width: 100%;
+}
+
+.ytdlp-input:focus-visible {
+  border-color: var(--forest);
+  outline: 2px solid var(--sand-chip);
+}
+
+.ytdlp-btn {
+  align-items: center;
+  background: var(--forest);
+  border: 1px solid var(--forest);
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.92rem;
+  font-weight: 700;
+  gap: 7px;
+  justify-content: center;
+  padding: 11px 18px;
+}
+
+.ytdlp-btn:hover:not(:disabled) {
+  background: var(--forest-soft);
+}
+
+.ytdlp-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ytdlp-btn--ghost {
+  background: #fff;
+  color: var(--forest);
+  border-color: var(--line);
+}
+
+.ytdlp-btn--ghost:hover:not(:disabled) {
+  background: var(--sand-chip);
+}
+
+.ytdlp-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 620px) {
+  .ytdlp-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.ytdlp-seg {
+  display: flex;
+  gap: 6px;
+}
+
+.ytdlp-seg button {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--forest);
+  cursor: pointer;
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 10px;
+}
+
+.ytdlp-seg button.is-active {
+  background: var(--forest);
+  border-color: var(--forest);
+  color: #fff;
+}
+
+.ytdlp-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ytdlp-checks label {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.88rem;
+  gap: 8px;
+  padding: 9px 12px;
+}
+
+.ytdlp-checks input {
+  accent-color: var(--forest);
+  height: 16px;
+  width: 16px;
+}
+
+.ytdlp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ytdlp-preview {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.ytdlp-thumb {
+  border-radius: 10px;
+  height: auto;
+  object-fit: cover;
+  width: 200px;
+}
+
+.ytdlp-preview-meta {
+  flex: 1 1 240px;
+}
+
+.ytdlp-title {
+  color: var(--forest);
+  font-size: 1.15rem;
+  margin: 0 0 6px;
+}
+
+.ytdlp-sub {
+  color: #5d6b64;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.ytdlp-note {
+  color: #4d5a53;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.ytdlp-code {
+  background: var(--forest);
+  border-radius: 8px;
+  color: #eef5f1;
+  direction: ltr;
+  display: block;
+  font-family: ui-monospace, monospace;
+  font-size: 0.88rem;
+  padding: 10px 12px;
+}
+
+.ytdlp-error {
+  background: #f6e2da;
+  border-radius: 10px;
+  color: var(--rust);
+  font-size: 0.88rem;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.ytdlp-inline-warn {
+  align-items: center;
+  color: var(--rust);
+  display: flex;
+  font-size: 0.85rem;
+  gap: 6px;
+  margin: 0;
+}
+
+.ytdlp-progress-head {
+  color: var(--forest);
+  display: flex;
+  font-size: 0.9rem;
+  font-weight: 700;
+  justify-content: space-between;
+}
+
+.ytdlp-progress {
+  background: var(--sand-chip);
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.ytdlp-progress span {
+  background: var(--forest);
+  display: block;
+  height: 100%;
+  transition: width 0.25s ease;
+}
+
+.ytdlp-files {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ytdlp-files li {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ytdlp-file-name {
+  color: #4d5a53;
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+
 .tool-purpose-bar {
   background: var(--sand-chip);
   border-bottom: 1px solid #c8d8d0;

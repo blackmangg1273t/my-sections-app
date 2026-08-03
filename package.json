@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node server/ytdlp-server.mjs",
+    "dev:full": "node server/ytdlp-server.mjs & vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
